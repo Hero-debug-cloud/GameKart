@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GameKart - 3D Kart Battle Arena</title>
+    <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+    <!-- Live Debug Overlay -->
+    <div id="debug-overlay" style="position: absolute; top: 10px; left: 10px; z-index: 100; background: rgba(12, 15, 18, 0.9); color: #10b981; font-family: 'Courier New', monospace; padding: 15px; border-radius: 8px; font-size: 12px; line-height: 1.6; pointer-events: none; border: 1px solid #3b82f6; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); min-width: 250px;">
+        <div style="font-weight: bold; color: #3b82f6; margin-bottom: 8px; border-bottom: 1px solid #1e3a8a; padding-bottom: 4px; font-size: 14px;">GAMEKART SYSTEM DEBUG</div>
+        <div>Inputs: <span id="debug-keys" style="color: #f3f4f6;">W: false | S: false | A: false | D: false</span></div>
+        <div>Position: <span id="debug-pos" style="color: #f3f4f6;">0.00, 0.00, 0.00</span></div>
+        <div>Velocity: <span id="debug-vel" style="color: #f3f4f6;">0.00, 0.00, 0.00</span></div>
+        <div>Speed: <span id="debug-speed" style="color: #3b82f6; font-weight: bold;">0.00 m/s</span></div>
+        <div style="margin-top: 8px; border-top: 1px solid #374151; padding-top: 4px; color: #ef4444; font-weight: bold;">System Errors: <span id="debug-errors" style="color: #fca5a5; font-weight: normal;">None</span></div>
+    </div>
+
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Global Error Catcher -->
+    <script>
+        window.onerror = function(message, source, lineno, colno, error) {
+            const errSpan = document.getElementById('debug-errors');
+            if (errSpan) {
+                errSpan.innerHTML = `${message} (Line ${lineno}:${colno})`;
+                errSpan.style.color = '#f87171';
+            }
+            return false;
+        };
+    </script>
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>

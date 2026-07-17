@@ -1,0 +1,12 @@
+{
+  "name": "gamekart-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/server.js",
+    "dev": "bun --hot run src/server.js"
+  },
+  "dependencies": {
+    "hono": "^4.12.30"
+  }
+}

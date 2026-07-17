@@ -1,0 +1,20 @@
+# Dependency directories
+node_modules/
+
+# Build outputs
+dist/
+.vite/
+
+# Log files
+*.log
+*.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDEs and editors
+.idea/
+.vscode/
+*.swp
+*.swo
