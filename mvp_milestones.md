@@ -56,15 +56,15 @@ This document serves as a milestone checklist for tracking the module-wise achie
 ## Module 4: Mystery Boxes & Weapons
 *Goal: Implement the combat mechanics of collecting and firing power-ups.*
 
-- [ ] **4.1 Floating Item Boxes**
+- [x] **4.1 Floating Item Boxes**
   - Interactive boxes placed in the arena that rotate, play an animation upon collision, disappear, and respawn after 5 seconds.
-- [ ] **4.2 Item Selection Logic**
+- [x] **4.2 Item Selection Logic**
   - A randomization routine that rolls a weapon/power-up upon box collection and updates the inventory state.
-- [ ] **4.3 Rocket (Projectile)**
+- [x] **4.3 Rocket (Projectile)**
   - Spawning a projectile mesh that travels forward at high speed and explodes on collision with other karts or obstacles.
-- [ ] **4.4 Landmine (Deployable)**
+- [x] **4.4 Landmine (Deployable)**
   - Dropping a static mine on the floor behind the kart that triggers a localized explosion when another kart drives over it.
-- [ ] **4.5 Nitro (Speed Boost)**
+- [x] **4.5 Nitro (Speed Boost)**
   - Temporarily bypassing the maximum speed cap and adding visual particle trails when activated.
 
 ---

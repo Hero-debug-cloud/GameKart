@@ -295,6 +295,9 @@ window.addEventListener('keydown', (e) => {
     if (key === 'a' || key === 'arrowleft') keys.a = true;
     if (key === 'd' || key === 'arrowright') keys.d = true;
     if (key === 'shift') keys.Shift = true; // Drift trigger
+    if (e.key === ' ') {
+        useHeldItem();
+    }
 });
 
 window.addEventListener('keyup', (e) => {
@@ -344,29 +347,284 @@ function updateCamera(dt) {
     camera.lookAt(targetLookAt);
 }
 
-// --- 8. FLOATING WEAPON BOXES (Bonus Playground Visuals)
-const boxes = [];
-const boxGeo = new THREE.BoxGeometry(1.2, 1.2, 1.2);
-const boxMat = new THREE.MeshStandardMaterial({
-    color: 0xf59e0b, // Yellow/Orange
-    roughness: 0.1,
-    metalness: 0.8,
-    transparent: true,
-    opacity: 0.85
-});
+// --- 8. MYSTERY BOXES, WEAPONS & PARTICLES SYSTEM ---
 
-function spawnWeaponBox(x, z) {
-    const mesh = new THREE.Mesh(boxGeo, boxMat);
-    mesh.position.set(x, 1, z);
-    scene.add(mesh);
-    boxes.push({ mesh, startY: 1, angle: Math.random() * Math.PI });
+// State Variables
+let currentHeldItem = null;
+let rouletteTimer = 0;
+let rouletteInterval = null;
+let boostTimer = 0;
+let spinOutTimer = 0;
+
+const itemBoxes = [];
+const activeParticles = [];
+const projectiles = [];
+const hazards = [];
+
+// Geometries & Materials
+const particleGeometry = new THREE.SphereGeometry(0.08, 4, 4);
+const particleMaterial = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+const fireGeometry = new THREE.SphereGeometry(0.06, 4, 4);
+const fireMaterial = new THREE.MeshBasicMaterial({ color: 0xff4500 });
+
+const bananaGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.08, 8);
+const bananaMat = new THREE.MeshStandardMaterial({ color: 0xfef08a, roughness: 0.6 });
+
+const rocketGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.8, 8);
+const rocketMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.2 });
+
+const itemsList = [
+    { name: 'Boost', icon: '⚡', color: '#10b981' },
+    { name: 'Banana', icon: '🍌', color: '#f59e0b' },
+    { name: 'Rocket', icon: '🚀', color: '#ef4444' }
+];
+
+// Particle burst helper
+function createCollectParticles(position) {
+    for (let i = 0; i < 12; i++) {
+        const mesh = new THREE.Mesh(particleGeometry, particleMaterial);
+        mesh.position.copy(position);
+        const velocity = new THREE.Vector3(
+            (Math.random() - 0.5) * 6,
+            (Math.random() - 0.2) * 6,
+            (Math.random() - 0.5) * 6
+        );
+        scene.add(mesh);
+        activeParticles.push({
+            mesh: mesh,
+            velocity: velocity,
+            life: 0.5
+        });
+    }
 }
 
-// Spawn some item boxes
-spawnWeaponBox(0, 20);
-spawnWeaponBox(-25, 0);
-spawnWeaponBox(25, -20);
-spawnWeaponBox(-15, 60);
+// Flame particle helper
+function createBoostFireParticles(position) {
+    const mesh = new THREE.Mesh(fireGeometry, fireMaterial);
+    mesh.position.copy(position);
+    const velocity = new THREE.Vector3(
+        (Math.random() - 0.5) * 1.5,
+        (Math.random() - 0.5) * 1.5 - 2, // Spit backward
+        (Math.random() - 0.5) * 1.5
+    );
+    scene.add(mesh);
+    activeParticles.push({
+        mesh: mesh,
+        velocity: velocity,
+        life: 0.25
+    });
+}
+
+// Rocket explosion helper
+function createExplosion(position) {
+    for (let i = 0; i < 20; i++) {
+        const mesh = new THREE.Mesh(particleGeometry, new THREE.MeshBasicMaterial({
+            color: Math.random() > 0.4 ? 0xef4444 : 0xf59e0b
+        }));
+        mesh.position.copy(position);
+        const velocity = new THREE.Vector3(
+            (Math.random() - 0.5) * 8,
+            (Math.random() - 0.2) * 8,
+            (Math.random() - 0.5) * 8
+        );
+        scene.add(mesh);
+        activeParticles.push({
+            mesh: mesh,
+            velocity: velocity,
+            life: 0.6
+        });
+    }
+}
+
+// Interactive Item Box Class
+class ItemBox {
+    constructor(x, y, z) {
+        this.spawnPos = new THREE.Vector3(x, y, z);
+        this.active = true;
+        this.cooldownTimer = 0;
+        this.angle = Math.random() * Math.PI;
+
+        this.group = new THREE.Group();
+        this.group.position.copy(this.spawnPos);
+
+        // Hologram glowing outer box
+        const boxGeo = new THREE.BoxGeometry(1.2, 1.2, 1.2);
+        const boxMat = new THREE.MeshStandardMaterial({
+            color: 0xeab308,
+            emissive: 0xca8a04,
+            roughness: 0.1,
+            transparent: true,
+            opacity: 0.65
+        });
+        this.mesh = new THREE.Mesh(boxGeo, boxMat);
+        this.group.add(this.mesh);
+
+        // Core diamond inside
+        const innerGeo = new THREE.OctahedronGeometry(0.4);
+        const innerMat = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            emissive: 0xfacc15,
+            roughness: 0.1
+        });
+        this.innerMesh = new THREE.Mesh(innerGeo, innerMat);
+        this.group.add(this.innerMesh);
+
+        scene.add(this.group);
+    }
+
+    update(dt) {
+        if (!this.active) {
+            this.cooldownTimer -= dt;
+            if (this.cooldownTimer <= 0) {
+                this.respawn();
+            }
+            return;
+        }
+
+        this.angle += dt * 2.0;
+        this.group.position.y = this.spawnPos.y + Math.sin(this.angle) * 0.25;
+        this.mesh.rotation.y += dt * 0.8;
+        this.mesh.rotation.x += dt * 0.4;
+        this.innerMesh.rotation.y -= dt * 1.5;
+    }
+
+    collect() {
+        this.active = false;
+        this.cooldownTimer = 5.0; // 5s respawn cooldown
+        this.group.visible = false;
+        createCollectParticles(this.spawnPos);
+    }
+
+    respawn() {
+        this.active = true;
+        this.group.visible = true;
+        this.group.position.copy(this.spawnPos);
+        createCollectParticles(this.spawnPos);
+    }
+}
+
+// Spawn item boxes across the map
+function spawnAllItemBoxes() {
+    // Starting area
+    itemBoxes.push(new ItemBox(0, 1.2, 15));
+    // High-reward on elevated platform
+    itemBoxes.push(new ItemBox(0, 3.8, -67.5));
+    // Side lanes
+    itemBoxes.push(new ItemBox(25, 1.2, 0));
+    itemBoxes.push(new ItemBox(-25, 1.2, 0));
+    // Back lanes
+    itemBoxes.push(new ItemBox(50, 1.2, -50));
+    itemBoxes.push(new ItemBox(-50, 1.2, -50));
+}
+spawnAllItemBoxes();
+
+// Item Roulette Trigger
+function triggerItemRoulette() {
+    if (currentHeldItem !== null || rouletteTimer > 0) return;
+
+    rouletteTimer = 1.0;
+    let index = 0;
+    
+    const hud = document.getElementById('item-hud');
+    const icon = document.getElementById('item-icon');
+    const label = document.getElementById('item-label');
+    
+    if (hud) hud.style.borderColor = '#3b82f6';
+    if (label) label.textContent = 'ROLLING';
+    
+    rouletteInterval = setInterval(() => {
+        icon.textContent = itemsList[index].icon;
+        index = (index + 1) % itemsList.length;
+    }, 70);
+
+    setTimeout(() => {
+        clearInterval(rouletteInterval);
+        currentHeldItem = itemsList[Math.floor(Math.random() * itemsList.length)];
+        icon.textContent = currentHeldItem.icon;
+        if (label) label.textContent = currentHeldItem.name;
+        if (hud) {
+            hud.style.borderColor = currentHeldItem.color;
+            hud.style.transform = 'scale(1.2)';
+            setTimeout(() => hud.style.transform = 'scale(1)', 150);
+        }
+        rouletteTimer = 0;
+    }, 1000);
+}
+
+// Use Held Item
+function useHeldItem() {
+    if (!currentHeldItem || rouletteTimer > 0 || spinOutTimer > 0) return;
+
+    const hud = document.getElementById('item-hud');
+    const icon = document.getElementById('item-icon');
+    const label = document.getElementById('item-label');
+
+    if (currentHeldItem.name === 'Boost') {
+        boostTimer = 1.5;
+    } else if (currentHeldItem.name === 'Banana') {
+        const offset = new THREE.Vector3(0, 0.1, -1.8);
+        offset.applyQuaternion(kartGroup.quaternion);
+        offset.add(kartGroup.position);
+        spawnBanana(offset);
+    } else if (currentHeldItem.name === 'Rocket') {
+        const offset = new THREE.Vector3(0, 0.4, 1.8);
+        offset.applyQuaternion(kartGroup.quaternion);
+        offset.add(kartGroup.position);
+        
+        const rocketDir = new THREE.Vector3(0, 0, 1);
+        rocketDir.applyQuaternion(kartGroup.quaternion);
+        spawnRocket(offset, rocketDir);
+    }
+
+    currentHeldItem = null;
+    if (icon) icon.textContent = '❓';
+    if (label) label.textContent = 'READY';
+    if (hud) hud.style.borderColor = '#eab308';
+}
+
+// Spawn Banana Hazard
+function spawnBanana(position) {
+    const mesh = new THREE.Mesh(bananaGeo, bananaMat);
+    mesh.position.copy(position);
+    mesh.rotation.x = Math.PI / 2;
+    mesh.castShadow = true;
+    scene.add(mesh);
+
+    const body = new CANNON.Body({
+        type: CANNON.Body.STATIC,
+        shape: new CANNON.Sphere(0.5)
+    });
+    body.position.copy(position);
+    world.addBody(body);
+
+    hazards.push({ mesh, body, type: 'banana', active: true });
+}
+
+// Spawn Rocket Projectile
+function spawnRocket(position, direction) {
+    const mesh = new THREE.Mesh(rocketGeo, rocketMat);
+    mesh.position.copy(position);
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+    mesh.castShadow = true;
+    scene.add(mesh);
+
+    const body = new CANNON.Body({
+        mass: 10,
+        shape: new CANNON.Sphere(0.4)
+    });
+    body.position.copy(position);
+    body.velocity.copy(direction.multiplyScalar(35)); // 35 m/s rocket speed
+    world.addBody(body);
+
+    projectiles.push({ mesh, body, type: 'rocket', active: true, life: 3.0 });
+}
+
+// Trigger Kart Spinout
+function triggerSpinOut() {
+    spinOutTimer = 1.2; // spin for 1.2 seconds
+    kartBody.angularVelocity.y = 12; // yaw spin
+    kartBody.velocity.scale(0.4, kartBody.velocity); // lose speed
+}
 
 // --- 9. MAIN GAME LOOP ---
 const clock = new THREE.Clock();
@@ -396,15 +654,31 @@ function tick() {
     const lateralSpeed = kartBody.velocity.dot(rightVec);
     
     // 3. Acceleration & Braking inputs
-    if (keys.w) {
-        if (currentSpeed < maxSpeed) {
-            const force = forwardVec.scale(acceleration * kartBody.mass);
-            kartBody.applyForce(force);
-        }
-    } else if (keys.s) {
-        if (currentSpeed > -maxSpeed / 2) {
-            const force = forwardVec.scale(-braking * kartBody.mass);
-            kartBody.applyForce(force);
+    let currentAcceleration = acceleration;
+    if (boostTimer > 0) {
+        boostTimer -= dt;
+        currentAcceleration = acceleration * 2.5; // High boost!
+        
+        // Spawn thruster fire at exhaust pipe
+        const exhaustPos = new THREE.Vector3(0.4, 0.2, -1.2);
+        exhaustPos.applyQuaternion(kartGroup.quaternion);
+        exhaustPos.add(kartGroup.position);
+        createBoostFireParticles(exhaustPos);
+    }
+    
+    if (spinOutTimer > 0) {
+        spinOutTimer -= dt;
+    } else {
+        if (keys.w) {
+            if (currentSpeed < maxSpeed) {
+                const force = forwardVec.scale(currentAcceleration * kartBody.mass);
+                kartBody.applyForce(force);
+            }
+        } else if (keys.s) {
+            if (currentSpeed > -maxSpeed / 2) {
+                const force = forwardVec.scale(-braking * kartBody.mass);
+                kartBody.applyForce(force);
+            }
         }
     }
     
@@ -415,25 +689,31 @@ function tick() {
     kartBody.velocity.vadd(dragImpulse, kartBody.velocity);
     
     // 5. Steering calculations
-    if (keys.a) {
-        steerAngle = Math.min(steerAngle + steerSpeed * dt, maxSteerAngle);
-    } else if (keys.d) {
-        steerAngle = Math.max(steerAngle - steerSpeed * dt, -maxSteerAngle);
+    if (spinOutTimer <= 0) {
+        if (keys.a) {
+            steerAngle = Math.min(steerAngle + steerSpeed * dt, maxSteerAngle);
+        } else if (keys.d) {
+            steerAngle = Math.max(steerAngle - steerSpeed * dt, -maxSteerAngle);
+        } else {
+            // Return wheels to center
+            steerAngle += (0 - steerAngle) * 8 * dt;
+        }
     } else {
-        // Return wheels to center
-        steerAngle += (0 - steerAngle) * 8 * dt;
+        steerAngle *= 0.9;
     }
     
     // 6. Rotate the vehicle based on speed and steering angle
-    if (Math.abs(currentSpeed) > 0.5) {
-        const directionFactor = currentSpeed > 0 ? 1 : -1;
-        // Make steering tighter at slower speeds, stable at high speeds
-        const normalizedSteer = steerAngle * (Math.min(Math.abs(currentSpeed), 15) / 15);
-        const rotImpulse = normalizedSteer * directionFactor * 2.8 * dt;
-        
-        const q = new CANNON.Quaternion();
-        q.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), rotImpulse);
-        kartBody.quaternion = kartBody.quaternion.mult(q);
+    if (spinOutTimer <= 0) {
+        if (Math.abs(currentSpeed) > 0.5) {
+            const directionFactor = currentSpeed > 0 ? 1 : -1;
+            // Make steering tighter at slower speeds, stable at high speeds
+            const normalizedSteer = steerAngle * (Math.min(Math.abs(currentSpeed), 15) / 15);
+            const rotImpulse = normalizedSteer * directionFactor * 2.8 * dt;
+            
+            const q = new CANNON.Quaternion();
+            q.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), rotImpulse);
+            kartBody.quaternion = kartBody.quaternion.mult(q);
+        }
     }
     
     // --- WHEEL ANIMATIONS (Visuals) ---
@@ -448,12 +728,81 @@ function tick() {
     wheels.rearLeft.children[0].rotation.x += wheelRotationSpeed;
     wheels.rearRight.children[0].rotation.x += wheelRotationSpeed;
     
-    // --- ANIMATE WEAPON BOXES ---
-    boxes.forEach(box => {
-        box.angle += dt * 1.5;
-        box.mesh.position.y = box.startY + Math.sin(box.angle) * 0.25;
-        box.mesh.rotation.y += dt * 0.8;
-        box.mesh.rotation.x += dt * 0.4;
+    // --- UPDATE PARTICLES ---
+    for (let i = activeParticles.length - 1; i >= 0; i--) {
+        const p = activeParticles[i];
+        p.life -= dt;
+        p.velocity.y -= 9.8 * dt; // gravity
+        p.mesh.position.addScaledVector(p.velocity, dt);
+        if (p.life <= 0) {
+            scene.remove(p.mesh);
+            activeParticles.splice(i, 1);
+        }
+    }
+
+    // --- UPDATE PROJECTILES ---
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+        const proj = projectiles[i];
+        if (proj.active) {
+            proj.life -= dt;
+            proj.mesh.position.copy(proj.body.position);
+            proj.mesh.quaternion.copy(proj.body.quaternion);
+
+            // Rocket smoke trail
+            createBoostFireParticles(proj.mesh.position);
+
+            let exploded = false;
+            if (proj.body.position.y < 0.2 || proj.life <= 0) {
+                exploded = true;
+            }
+
+            // Collide with pillars
+            const pillars = [
+                { x: 25, z: 25, r: 2.5 },
+                { x: -25, z: 25, r: 2.5 },
+                { x: 25, z: -25, r: 2.5 },
+                { x: -25, z: -25, r: 2.5 }
+            ];
+            pillars.forEach(pil => {
+                const dx = proj.body.position.x - pil.x;
+                const dz = proj.body.position.z - pil.z;
+                if (Math.sqrt(dx * dx + dz * dz) < pil.r + 0.5) exploded = true;
+            });
+
+            if (exploded) {
+                proj.active = false;
+                scene.remove(proj.mesh);
+                world.removeBody(proj.body);
+                createExplosion(proj.body.position);
+                projectiles.splice(i, 1);
+            }
+        }
+    }
+
+    // --- UPDATE HAZARDS & COLLISION CHECKS ---
+    hazards.forEach(hazard => {
+        if (hazard.active) {
+            const dist = kartBody.position.distanceTo(hazard.body.position);
+            if (dist < 1.4) {
+                triggerSpinOut();
+                hazard.active = false;
+                scene.remove(hazard.mesh);
+                world.removeBody(hazard.body);
+                createCollectParticles(hazard.body.position);
+            }
+        }
+    });
+
+    // --- UPDATE ITEM BOXES & COLLECTION CHECKS ---
+    itemBoxes.forEach(box => {
+        box.update(dt);
+        if (box.active) {
+            const dist = kartBody.position.distanceTo(new CANNON.Vec3(box.spawnPos.x, box.group.position.y, box.spawnPos.z));
+            if (dist < 2.0) {
+                box.collect();
+                triggerItemRoulette();
+            }
+        }
     });
     
     // --- UPDATE CAMERA ---
