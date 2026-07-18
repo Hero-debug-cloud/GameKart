@@ -5,8 +5,8 @@ console.log("GameKart Physics Sandbox starting...");
 
 // --- 1. THREE.JS GRAPHICS SETUP ---
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x060814); // Deep space color
-scene.fog = new THREE.FogExp2(0x060814, 0.012); // Deep dark space fog
+scene.background = new THREE.Color(0xa5f3fc); // Bright cyan/sky-blue background
+scene.fog = new THREE.FogExp2(0xa5f3fc, 0.008); // Light cartoonish fog
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer({
@@ -17,29 +17,6 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-
-// Add Starfield Particle System
-const starCount = 1800;
-const starGeo = new THREE.BufferGeometry();
-const starPositions = new Float32Array(starCount * 3);
-for (let i = 0; i < starCount * 3; i += 3) {
-    const radius = 120 + Math.random() * 80;
-    const theta = Math.random() * Math.PI * 2;
-    const phi = Math.acos((Math.random() * 2) - 1);
-    
-    starPositions[i] = radius * Math.sin(phi) * Math.cos(theta);
-    starPositions[i+1] = Math.abs(radius * Math.sin(phi) * Math.sin(theta)) + 5; // keep above ground
-    starPositions[i+2] = radius * Math.cos(phi);
-}
-starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
-const starMat = new THREE.PointsMaterial({
-    color: 0xffffff,
-    size: 0.5,
-    transparent: true,
-    opacity: 0.75
-});
-const starField = new THREE.Points(starGeo, starMat);
-scene.add(starField);
 
 // --- 2. CANNON-ES PHYSICS SETUP ---
 const world = new CANNON.World();
@@ -60,43 +37,66 @@ const contactMaterial = new CANNON.ContactMaterial(groundPhysicsMat, kartPhysics
 world.addContactMaterial(contactMaterial);
 
 // --- 3. ENVIRONMENT & LIGHTING ---
-// Generate custom glowing procedural grid texture using a 2D canvas
+// Generate custom tropical beach-and-water texture using a canvas
 const canvas = document.createElement('canvas');
-canvas.width = 128;
-canvas.height = 128;
+canvas.width = 512;
+canvas.height = 512;
 const ctx = canvas.getContext('2d');
 
-// Dark space background
-ctx.fillStyle = '#060814';
-ctx.fillRect(0, 0, 128, 128);
+// Golden Sand Base
+ctx.fillStyle = '#fde047'; // Golden sand
+ctx.fillRect(0, 0, 512, 512);
 
-// Glow effect on grid lines
-ctx.shadowColor = '#6d28d9'; // deep violet glow
-ctx.shadowBlur = 8;
+// Wide stylized turquoise water path running down the middle
+ctx.fillStyle = '#2dd4bf'; // Turquoise water
+ctx.fillRect(128, 0, 256, 512);
 
-// Neon purple grid lines
-ctx.strokeStyle = '#4c1d95'; 
-ctx.lineWidth = 3;
-ctx.strokeRect(0, 0, 128, 128);
+// Ocean wave borders (shorelines)
+ctx.strokeStyle = '#f0fdfa'; // White wave foam
+ctx.lineWidth = 10;
 
-// Inner cyan grid lines (without shadow)
-ctx.shadowBlur = 0;
-ctx.strokeStyle = '#1e293b'; 
-ctx.lineWidth = 1;
-ctx.strokeRect(0, 0, 128, 128);
+// Left foam border
+ctx.beginPath();
+for (let y = 0; y <= 512; y += 12) {
+    const wave = Math.sin(y * 0.04) * 6;
+    if (y === 0) ctx.moveTo(128 + wave, y);
+    else ctx.lineTo(128 + wave, y);
+}
+ctx.stroke();
+
+// Right foam border
+ctx.beginPath();
+for (let y = 0; y <= 512; y += 12) {
+    const wave = Math.sin(y * 0.04 + Math.PI) * 6;
+    if (y === 0) ctx.moveTo(384 + wave, y);
+    else ctx.lineTo(384 + wave, y);
+}
+ctx.stroke();
+
+// Cartoon waves in the water channel
+ctx.strokeStyle = '#06b6d4'; // Cyan wave highlights
+ctx.lineWidth = 4;
+for (let y = 32; y < 512; y += 64) {
+    ctx.beginPath();
+    ctx.arc(220, y, 15, 0, Math.PI);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(290, y + 32, 15, 0, Math.PI);
+    ctx.stroke();
+}
 
 const gridTexture = new THREE.CanvasTexture(canvas);
 gridTexture.wrapS = THREE.RepeatWrapping;
 gridTexture.wrapT = THREE.RepeatWrapping;
-gridTexture.repeat.set(100, 100); // Repeat over 200x200 arena
+gridTexture.repeat.set(6, 6); // Repeat over massive 200x200 arena
 
 // Ground Plane
 const size = 200;
 const groundGeo = new THREE.PlaneGeometry(size, size);
 const groundMat = new THREE.MeshStandardMaterial({
     map: gridTexture,
-    roughness: 0.5,
-    metalness: 0.6
+    roughness: 0.85,
+    metalness: 0.05
 });
 const groundMesh = new THREE.Mesh(groundGeo, groundMat);
 groundMesh.rotation.x = -Math.PI / 2;
@@ -112,22 +112,27 @@ const groundBody = new CANNON.Body({
 groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
 world.addBody(groundBody);
 
-// Boundary & Track Materials
+// Boundary & Track Materials (Rock & Grass)
 const walls = [];
 const wallHeight = 4;
 const wallThickness = 2;
 const wallMaterial = new THREE.MeshStandardMaterial({
-    color: 0x090d16, // Glossy dark obsidian
-    roughness: 0.15,
-    metalness: 0.9
+    color: 0x94a3b8, // Warm grey rock canyon walls
+    roughness: 0.8,
+    metalness: 0.05
 });
 const pillarMaterial = new THREE.MeshStandardMaterial({
-    color: 0x0d111d, // Dark metal pillars
-    roughness: 0.2,
-    metalness: 0.8
+    color: 0x64748b, // Dark stone columns
+    roughness: 0.85,
+    metalness: 0.05
+});
+const grassMaterial = new THREE.MeshStandardMaterial({
+    color: 0x15803d, // Grassy tops
+    roughness: 0.9,
+    metalness: 0.02
 });
 
-// Helper for standard walls (with neon pink top trim)
+// Helper for standard walls (with brown soil layer tops)
 function createWall(x, z, width, depth) {
     const geo = new THREE.BoxGeometry(width, wallHeight, depth);
     const mesh = new THREE.Mesh(geo, wallMaterial);
@@ -137,11 +142,11 @@ function createWall(x, z, width, depth) {
     scene.add(mesh);
     walls.push(mesh);
 
-    // Glowing hot pink trim along the top
-    const trimGeo = new THREE.BoxGeometry(width + 0.05, 0.08, depth + 0.05);
-    const trimMat = new THREE.MeshBasicMaterial({ color: 0xec4899 }); // Neon Hot Pink
+    // Warm brown top soil layer
+    const trimGeo = new THREE.BoxGeometry(width + 0.04, 0.16, depth + 0.04);
+    const trimMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.9 });
     const trimMesh = new THREE.Mesh(trimGeo, trimMat);
-    trimMesh.position.set(x, wallHeight - 0.04, z);
+    trimMesh.position.set(x, wallHeight - 0.08, z);
     scene.add(trimMesh);
 
     const body = new CANNON.Body({
@@ -152,7 +157,7 @@ function createWall(x, z, width, depth) {
     world.addBody(body);
 }
 
-// Helper for sloped ramps (with neon green side trims)
+// Helper for sloped ramps (with green grass side barriers)
 function createRamp(x, y, z, width, height, depth, angleRad) {
     const geo = new THREE.BoxGeometry(width, height, depth);
     const mesh = new THREE.Mesh(geo, wallMaterial);
@@ -161,11 +166,10 @@ function createRamp(x, y, z, width, height, depth, angleRad) {
     mesh.receiveShadow = true;
     scene.add(mesh);
 
-    // Neon green side trim guards
-    const trimGeo = new THREE.BoxGeometry(0.12, height + 0.04, depth);
-    const trimMat = new THREE.MeshBasicMaterial({ color: 0x10b981 }); // Neon Emerald Green
+    // Green grass side rails
+    const trimGeo = new THREE.BoxGeometry(0.12, height + 0.05, depth);
     
-    const trimL = new THREE.Mesh(trimGeo, trimMat);
+    const trimL = new THREE.Mesh(trimGeo, grassMaterial);
     trimL.position.set(-width / 2 + 0.06, 0.02, 0);
     mesh.add(trimL);
 
@@ -183,7 +187,7 @@ function createRamp(x, y, z, width, height, depth, angleRad) {
     world.addBody(body);
 }
 
-// Helper for elevated platforms (with neon green side trims)
+// Helper for elevated platforms (with green grass side rails)
 function createPlatform(x, y, z, width, height, depth) {
     const geo = new THREE.BoxGeometry(width, height, depth);
     const mesh = new THREE.Mesh(geo, wallMaterial);
@@ -192,10 +196,9 @@ function createPlatform(x, y, z, width, height, depth) {
     mesh.receiveShadow = true;
     scene.add(mesh);
 
-    const trimGeo = new THREE.BoxGeometry(0.12, height + 0.04, depth);
-    const trimMat = new THREE.MeshBasicMaterial({ color: 0x10b981 }); // Neon Emerald Green
+    const trimGeo = new THREE.BoxGeometry(0.12, height + 0.05, depth);
 
-    const trimL = new THREE.Mesh(trimGeo, trimMat);
+    const trimL = new THREE.Mesh(trimGeo, grassMaterial);
     trimL.position.set(-width / 2 + 0.06, 0.02, 0);
     mesh.add(trimL);
 
@@ -211,7 +214,7 @@ function createPlatform(x, y, z, width, height, depth) {
     world.addBody(body);
 }
 
-// Helper for cylindrical pillars (with neon blue floating rings)
+// Helper for cylindrical pillars (with green grass plateau caps)
 function createPillar(x, z, radius, height) {
     const geo = new THREE.CylinderGeometry(radius, radius, height, 16);
     const mesh = new THREE.Mesh(geo, pillarMaterial);
@@ -220,13 +223,11 @@ function createPillar(x, z, radius, height) {
     mesh.receiveShadow = true;
     scene.add(mesh);
 
-    // Glowing neon blue ring around the pillar center
-    const ringGeo = new THREE.TorusGeometry(radius + 0.08, 0.06, 8, 24);
-    const ringMat = new THREE.MeshBasicMaterial({ color: 0x3b82f6 }); // Neon Blue
-    const ring = new THREE.Mesh(ringGeo, ringMat);
-    ring.position.set(x, height / 2, z);
-    ring.rotation.x = Math.PI / 2;
-    scene.add(ring);
+    // Green grass plateau cap
+    const capGeo = new THREE.CylinderGeometry(radius + 0.06, radius + 0.06, 0.22, 16);
+    const cap = new THREE.Mesh(capGeo, grassMaterial);
+    cap.position.set(x, height - 0.08, z);
+    scene.add(cap);
 
     const body = new CANNON.Body({
         type: CANNON.Body.STATIC,
@@ -244,8 +245,8 @@ createWall(100, 0, wallThickness, 200);   // East
 createWall(-100, 0, wallThickness, 200);  // West
 
 // Build sloped ramps & elevated platforms
-createRamp(0, 1.2, -40, 10, 0.4, 25, 0.12); // Ramp leading up to -Z (starts around Z = -27.5, ends Z = -52.5)
-createPlatform(0, 2.5, -67.5, 12, 0.4, 30); // Landing Platform at the end of the ramp
+createRamp(0, 1.2, -40, 10, 0.4, 25, 0.12); // Ramp leading up to -Z (starts Z = -27.5, ends Z = -52.5)
+createPlatform(0, 2.5, -67.5, 12, 0.4, 30); // Landing Platform
 
 // Build cylindrical pillars & block obstacles
 createPillar(25, 25, 2.5, 6);
@@ -256,12 +257,12 @@ createPillar(-25, -25, 2.5, 6);
 createWall(45, 0, 15, 6);
 createWall(-45, 0, 15, 6);
 
-// Cyberpunk Vaporwave Lighting
-const ambientLight = new THREE.AmbientLight(0x131124, 0.8); // Deep space purple ambient
+// Bright Sunny Tropical Lighting
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.85); // Bright white ambient
 scene.add(ambientLight);
 
-const dirLight = new THREE.DirectionalLight(0x7c3aed, 1.6); // Violet sun
-dirLight.position.set(50, 80, 50);
+const dirLight = new THREE.DirectionalLight(0xfffbeb, 1.4); // Sunny warm directional light
+dirLight.position.set(40, 80, 40);
 dirLight.castShadow = true;
 dirLight.shadow.mapSize.width = 2048;
 dirLight.shadow.mapSize.height = 2048;
@@ -724,6 +725,30 @@ function createExplosion(position) {
     }
 }
 
+// Procedural Smash Karts item box texture
+const itemBoxCanvas = document.createElement('canvas');
+itemBoxCanvas.width = 128;
+itemBoxCanvas.height = 128;
+const ibCtx = itemBoxCanvas.getContext('2d');
+
+// Red base
+ibCtx.fillStyle = '#ef4444'; // Red
+ibCtx.fillRect(0, 0, 128, 128);
+
+// Yellow border
+ibCtx.strokeStyle = '#facc15';
+ibCtx.lineWidth = 8;
+ibCtx.strokeRect(6, 6, 116, 116);
+
+// Yellow Question Mark
+ibCtx.fillStyle = '#facc15';
+ibCtx.font = 'bold 78px Arial';
+ibCtx.textAlign = 'center';
+ibCtx.textBaseline = 'middle';
+ibCtx.fillText('?', 64, 64);
+
+const itemBoxTexture = new THREE.CanvasTexture(itemBoxCanvas);
+
 // Interactive Item Box Class
 class ItemBox {
     constructor(x, y, z) {
@@ -735,27 +760,16 @@ class ItemBox {
         this.group = new THREE.Group();
         this.group.position.copy(this.spawnPos);
 
-        // Hologram glowing outer box
-        const boxGeo = new THREE.BoxGeometry(1.2, 1.2, 1.2);
+        // Red question-mark cube (Smash Karts style)
+        const boxGeo = new THREE.BoxGeometry(1.1, 1.1, 1.1);
         const boxMat = new THREE.MeshStandardMaterial({
-            color: 0xeab308,
-            emissive: 0xca8a04,
-            roughness: 0.1,
-            transparent: true,
-            opacity: 0.65
+            map: itemBoxTexture,
+            roughness: 0.5,
+            metalness: 0.1
         });
         this.mesh = new THREE.Mesh(boxGeo, boxMat);
+        this.mesh.castShadow = true;
         this.group.add(this.mesh);
-
-        // Core diamond inside
-        const innerGeo = new THREE.OctahedronGeometry(0.4);
-        const innerMat = new THREE.MeshStandardMaterial({
-            color: 0xffffff,
-            emissive: 0xfacc15,
-            roughness: 0.1
-        });
-        this.innerMesh = new THREE.Mesh(innerGeo, innerMat);
-        this.group.add(this.innerMesh);
 
         scene.add(this.group);
     }
@@ -771,9 +785,7 @@ class ItemBox {
 
         this.angle += dt * 2.0;
         this.group.position.y = this.spawnPos.y + Math.sin(this.angle) * 0.25;
-        this.mesh.rotation.y += dt * 0.8;
-        this.mesh.rotation.x += dt * 0.4;
-        this.innerMesh.rotation.y -= dt * 1.5;
+        this.mesh.rotation.y += dt * 1.2;
     }
 
     collect() {
