@@ -198,52 +198,248 @@ const kartWidth = 1.6;
 const kartHeight = 1.1;
 const kartLength = 2.6;
 
-// Visual Chassis Parts
-const chassisGeo = new THREE.BoxGeometry(kartWidth, 0.4, kartLength);
-const chassisMat = new THREE.MeshStandardMaterial({ color: 0xef4444, metalness: 0.5, roughness: 0.3 }); // Vibrant Red
-const chassisMesh = new THREE.Mesh(chassisGeo, chassisMat);
-chassisMesh.castShadow = true;
-chassisMesh.receiveShadow = true;
-kartGroup.add(chassisMesh);
+// Materials System
+const bodyMat = new THREE.MeshPhysicalMaterial({
+    color: 0xef4444, // Vibrant Red
+    metalness: 0.9,
+    roughness: 0.15,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.1
+});
+const carbonMat = new THREE.MeshStandardMaterial({
+    color: 0x1e293b, // Dark carbon-like pod
+    metalness: 0.4,
+    roughness: 0.8
+});
+const metalMat = new THREE.MeshStandardMaterial({
+    color: 0x64748b, // Engine parts
+    metalness: 0.95,
+    roughness: 0.1
+});
+const glassMat = new THREE.MeshStandardMaterial({
+    color: 0x38bdf8, // Cyan Windshield
+    transparent: true,
+    opacity: 0.5,
+    roughness: 0.05,
+    metalness: 0.1
+});
+const tireMat = new THREE.MeshStandardMaterial({
+    color: 0x0f172a, // Dark rubber
+    roughness: 0.9
+});
+const rimMat = new THREE.MeshStandardMaterial({
+    color: 0xe2e8f0, // Chrome alloy rims
+    metalness: 0.98,
+    roughness: 0.05
+});
+const stripeMat = new THREE.MeshBasicMaterial({
+    color: 0xeab308 // Yellow tyre wall ring
+});
+const glowMat = new THREE.MeshBasicMaterial({
+    color: 0x60a5fa // Headlights / LED glow
+});
 
-// Seat
-const seatGeo = new THREE.BoxGeometry(0.8, 0.5, 0.6);
-const seatMat = new THREE.MeshStandardMaterial({ color: 0x1e293b });
-const seatMesh = new THREE.Mesh(seatGeo, seatMat);
-seatMesh.position.set(0, 0.3, -0.4);
-seatMesh.castShadow = true;
-kartGroup.add(seatMesh);
+// 1. Sleek Main Frame
+const noseGeo = new THREE.BoxGeometry(0.7, 0.22, 1.1);
+const noseMesh = new THREE.Mesh(noseGeo, bodyMat);
+noseMesh.position.set(0, -0.05, 0.7);
+noseMesh.castShadow = true;
+noseMesh.receiveShadow = true;
+kartGroup.add(noseMesh);
 
-// Pilot / Driver Placeholder
-const headGeo = new THREE.SphereGeometry(0.25, 12, 12);
-const headMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, metalness: 0.1, roughness: 0.5 }); // Blue helmet
-const headMesh = new THREE.Mesh(headGeo, headMat);
-headMesh.position.set(0, 0.85, -0.4);
-headMesh.castShadow = true;
-kartGroup.add(headMesh);
+const cockpitFrameGeo = new THREE.BoxGeometry(1.2, 0.38, 1.5);
+const cockpitFrameMesh = new THREE.Mesh(cockpitFrameGeo, bodyMat);
+cockpitFrameMesh.position.set(0, 0, -0.3);
+cockpitFrameMesh.castShadow = true;
+cockpitFrameMesh.receiveShadow = true;
+kartGroup.add(cockpitFrameMesh);
 
-const bodyGeo = new THREE.BoxGeometry(0.5, 0.5, 0.4);
-const bodyMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.1, roughness: 0.8 }); // Yellow driver suit
-const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
-bodyMesh.position.set(0, 0.5, -0.4);
-bodyMesh.castShadow = true;
-kartGroup.add(bodyMesh);
+// 2. Aerodynamic Side Pods (Left & Right)
+const leftPodGeo = new THREE.BoxGeometry(0.2, 0.3, 1.1);
+const leftPod = new THREE.Mesh(leftPodGeo, carbonMat);
+leftPod.position.set(-0.7, 0.01, -0.2);
+leftPod.castShadow = true;
+leftPod.receiveShadow = true;
+kartGroup.add(leftPod);
 
+const rightPod = leftPod.clone();
+rightPod.position.x = 0.7;
+kartGroup.add(rightPod);
 
-// Exhaust Pipe
-const exhaustGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.8, 8);
-const exhaustMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.9, roughness: 0.1 });
-const exhaustMesh = new THREE.Mesh(exhaustGeo, exhaustMat);
-exhaustMesh.rotation.x = Math.PI / 3;
-exhaustMesh.position.set(0.4, 0.2, -1.2);
-exhaustMesh.castShadow = true;
-kartGroup.add(exhaustMesh);
+// 3. Front Wing & Endplates (F1 Style Bumper)
+const frontWingGeo = new THREE.BoxGeometry(1.7, 0.06, 0.28);
+const frontWing = new THREE.Mesh(frontWingGeo, carbonMat);
+frontWing.position.set(0, -0.15, 1.25);
+frontWing.castShadow = true;
+kartGroup.add(frontWing);
+
+const endplateGeo = new THREE.BoxGeometry(0.04, 0.2, 0.32);
+const leftEndplate = new THREE.Mesh(endplateGeo, bodyMat);
+leftEndplate.position.set(-0.85, -0.08, 1.25);
+leftEndplate.castShadow = true;
+kartGroup.add(leftEndplate);
+
+const rightEndplate = leftEndplate.clone();
+rightEndplate.position.x = 0.85;
+kartGroup.add(rightEndplate);
+
+// 4. Aero Windshield
+const windshieldGeo = new THREE.BoxGeometry(0.8, 0.26, 0.08);
+const windshield = new THREE.Mesh(windshieldGeo, glassMat);
+windshield.position.set(0, 0.28, 0.4);
+windshield.rotation.x = 0.55;
+windshield.castShadow = true;
+kartGroup.add(windshield);
+
+// 5. Dashboard Steering Console
+const dashGeo = new THREE.BoxGeometry(0.6, 0.12, 0.15);
+const dash = new THREE.Mesh(dashGeo, carbonMat);
+dash.position.set(0, 0.22, 0.3);
+kartGroup.add(dash);
+
+const columnGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.26, 8);
+const column = new THREE.Mesh(columnGeo, metalMat);
+column.position.set(0, 0.18, 0.16);
+column.rotation.x = -0.5;
+kartGroup.add(column);
+
+const wheelTorusGeo = new THREE.TorusGeometry(0.16, 0.03, 8, 16);
+const steeringWheel = new THREE.Mesh(wheelTorusGeo, carbonMat);
+steeringWheel.position.set(0, 0.26, 0.06);
+steeringWheel.rotation.x = -0.5;
+kartGroup.add(steeringWheel);
+
+// 6. Bucket Seat
+const seatBaseGeo = new THREE.BoxGeometry(0.8, 0.12, 0.6);
+const seatBase = new THREE.Mesh(seatBaseGeo, carbonMat);
+seatBase.position.set(0, 0.06, -0.45);
+seatBase.castShadow = true;
+kartGroup.add(seatBase);
+
+const seatBackGeo = new THREE.BoxGeometry(0.8, 0.65, 0.12);
+const seatBack = new THREE.Mesh(seatBackGeo, carbonMat);
+seatBack.position.set(0, 0.36, -0.7);
+seatBack.rotation.x = -0.15;
+seatBack.castShadow = true;
+kartGroup.add(seatBack);
+
+// 7. Rear Exposed V8 Engine block
+const engineBlockGeo = new THREE.BoxGeometry(0.65, 0.45, 0.45);
+const engineBlock = new THREE.Mesh(engineBlockGeo, metalMat);
+engineBlock.position.set(0, 0.18, -0.95);
+engineBlock.castShadow = true;
+kartGroup.add(engineBlock);
+
+const exhaustRightGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.7, 8);
+const exhaustRight = new THREE.Mesh(exhaustRightGeo, metalMat);
+exhaustRight.position.set(0.32, 0.22, -1.22);
+exhaustRight.rotation.x = Math.PI / 3;
+exhaustRight.castShadow = true;
+kartGroup.add(exhaustRight);
+
+const exhaustLeft = exhaustRight.clone();
+exhaustLeft.position.x = -0.32;
+kartGroup.add(exhaustLeft);
+
+// Exhaust Flame Cones (Hidden by default, activated during Nitro boost)
+const flameGeo = new THREE.ConeGeometry(0.12, 0.4, 8);
+const flameMat = new THREE.MeshBasicMaterial({ color: 0xff4500, transparent: true, opacity: 0.9 });
+
+const rightFlame = new THREE.Mesh(flameGeo, flameMat);
+rightFlame.position.set(0.32, 0.45, -1.55);
+rightFlame.rotation.x = Math.PI / 6; // align with exhaust angle
+rightFlame.visible = false;
+kartGroup.add(rightFlame);
+
+const leftFlame = rightFlame.clone();
+leftFlame.position.set(-0.32, 0.45, -1.55);
+kartGroup.add(leftFlame);
+
+// 8. F1 Style High Rear Spoiler
+const spoilerSupportGeo = new THREE.BoxGeometry(0.04, 0.75, 0.2);
+const leftSpoilerSupport = new THREE.Mesh(spoilerSupportGeo, carbonMat);
+leftSpoilerSupport.position.set(-0.45, 0.38, -1.05);
+leftSpoilerSupport.castShadow = true;
+kartGroup.add(leftSpoilerSupport);
+
+const rightSpoilerSupport = leftSpoilerSupport.clone();
+rightSpoilerSupport.position.x = 0.45;
+kartGroup.add(rightSpoilerSupport);
+
+const mainSpoilerGeo = new THREE.BoxGeometry(1.6, 0.04, 0.35);
+const mainSpoiler = new THREE.Mesh(mainSpoilerGeo, bodyMat);
+mainSpoiler.position.set(0, 0.75, -1.05);
+mainSpoiler.castShadow = true;
+kartGroup.add(mainSpoiler);
+
+const spoilerEndplateGeo = new THREE.BoxGeometry(0.03, 0.26, 0.48);
+const leftSpoilerEndplate = new THREE.Mesh(spoilerEndplateGeo, carbonMat);
+leftSpoilerEndplate.position.set(-0.8, 0.75, -1.05);
+leftSpoilerEndplate.castShadow = true;
+kartGroup.add(leftSpoilerEndplate);
+
+const rightSpoilerEndplate = leftSpoilerEndplate.clone();
+rightSpoilerEndplate.position.x = 0.8;
+kartGroup.add(rightSpoilerEndplate);
+
+// 9. Modern Helmet Pilot
+const helmetGeo = new THREE.SphereGeometry(0.23, 16, 16);
+const helmetMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, metalness: 0.7, roughness: 0.15 }); // Blue helmet
+const helmet = new THREE.Mesh(helmetGeo, helmetMat);
+helmet.position.set(0, 0.82, -0.45);
+helmet.castShadow = true;
+kartGroup.add(helmet);
+
+// Visor
+const visorGeo = new THREE.SphereGeometry(0.24, 16, 16, 0, Math.PI, 0.3, 1.2);
+const visorMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.9, roughness: 0.05 }); // reflective visor
+const visor = new THREE.Mesh(visorGeo, visorMat);
+visor.position.set(0, 0.82, -0.45);
+visor.rotation.y = Math.PI; // visor faces forward
+visor.rotation.x = 0.1;
+kartGroup.add(visor);
+
+// Pilot Body Suit
+const pilotBodyGeo = new THREE.BoxGeometry(0.5, 0.48, 0.42);
+const pilotBodyMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.1, roughness: 0.7 }); // Yellow Suit
+const pilotBody = new THREE.Mesh(pilotBodyGeo, pilotBodyMat);
+pilotBody.position.set(0, 0.52, -0.45);
+pilotBody.castShadow = true;
+kartGroup.add(pilotBody);
+
+// Arm steering connections (L & R cylinders)
+const armGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.4, 8);
+const leftArm = new THREE.Mesh(armGeo, pilotBodyMat);
+leftArm.position.set(-0.25, 0.38, -0.15);
+leftArm.rotation.x = Math.PI / 3;
+leftArm.rotation.z = 0.3;
+kartGroup.add(leftArm);
+
+const rightArm = leftArm.clone();
+rightArm.position.x = 0.25;
+rightArm.rotation.z = -0.3;
+kartGroup.add(rightArm);
+
+// 10. Front LED Headlamps & Real Lighting
+const headlampGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.04, 12);
+const leftHeadlamp = new THREE.Mesh(headlampGeo, glowMat);
+leftHeadlamp.position.set(-0.25, 0.06, 1.25);
+leftHeadlamp.rotation.x = Math.PI / 2;
+kartGroup.add(leftHeadlamp);
+
+const rightHeadlamp = leftHeadlamp.clone();
+rightHeadlamp.position.x = 0.25;
+kartGroup.add(rightHeadlamp);
+
+// Underglow Neon LED (PointLight casting cyan light under the kart)
+const underglow = new THREE.PointLight(0x00ffff, 2.5, 7, 1.5);
+underglow.position.set(0, -0.25, 0);
+kartGroup.add(underglow);
 
 // Wheels Setup
 const wheelRadius = 0.45;
 const wheelWidth = 0.3;
 const wheelGeo = new THREE.CylinderGeometry(wheelRadius, wheelRadius, wheelWidth, 16);
-const wheelMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9 });
 
 // Wheel Groups for rotation and swiveling
 const wheels = {
@@ -254,10 +450,41 @@ const wheels = {
 };
 
 function createWheelMesh(group, x, y, z) {
-    const mesh = new THREE.Mesh(wheelGeo, wheelMat);
-    mesh.rotation.z = Math.PI / 2; // Orient cylinder horizontally
-    mesh.castShadow = true;
-    group.add(mesh);
+    const rollGroup = new THREE.Group(); // Rolling subgroup
+    group.add(rollGroup);
+
+    // Black Rubber Tyre
+    const tire = new THREE.Mesh(wheelGeo, tireMat);
+    tire.rotation.z = Math.PI / 2; // Orient cylinder horizontally
+    tire.castShadow = true;
+    tire.receiveShadow = true;
+    rollGroup.add(tire);
+
+    // Chrome Rim
+    const rimGeo = new THREE.CylinderGeometry(wheelRadius * 0.6, wheelRadius * 0.6, wheelWidth + 0.01, 16);
+    const rim = new THREE.Mesh(rimGeo, rimMat);
+    rim.rotation.z = Math.PI / 2;
+    rim.castShadow = true;
+    rollGroup.add(rim);
+
+    // Hub Cap
+    const capGeo = new THREE.CylinderGeometry(wheelRadius * 0.25, wheelRadius * 0.25, wheelWidth + 0.02, 8);
+    const cap = new THREE.Mesh(capGeo, carbonMat);
+    cap.rotation.z = Math.PI / 2;
+    rollGroup.add(cap);
+
+    // Sidewall stripe (Left side)
+    const stripeGeo = new THREE.TorusGeometry(wheelRadius * 0.8, 0.02, 4, 16);
+    const stripeL = new THREE.Mesh(stripeGeo, stripeMat);
+    stripeL.position.x = -wheelWidth / 2 - 0.005;
+    stripeL.rotation.y = Math.PI / 2;
+    rollGroup.add(stripeL);
+
+    // Sidewall stripe (Right side)
+    const stripeR = stripeL.clone();
+    stripeR.position.x = wheelWidth / 2 + 0.005;
+    rollGroup.add(stripeR);
+
     group.position.set(x, y, z);
     kartGroup.add(group);
 }
@@ -659,11 +886,21 @@ function tick() {
         boostTimer -= dt;
         currentAcceleration = acceleration * 2.5; // High boost!
         
+        // Show and animate flames
+        rightFlame.visible = true;
+        leftFlame.visible = true;
+        const scaleF = 1.0 + Math.sin(clock.getElapsedTime() * 45) * 0.3;
+        rightFlame.scale.set(scaleF, scaleF * 1.5, scaleF);
+        leftFlame.scale.set(scaleF, scaleF * 1.5, scaleF);
+        
         // Spawn thruster fire at exhaust pipe
         const exhaustPos = new THREE.Vector3(0.4, 0.2, -1.2);
         exhaustPos.applyQuaternion(kartGroup.quaternion);
         exhaustPos.add(kartGroup.position);
         createBoostFireParticles(exhaustPos);
+    } else {
+        rightFlame.visible = false;
+        leftFlame.visible = false;
     }
     
     if (spinOutTimer > 0) {
